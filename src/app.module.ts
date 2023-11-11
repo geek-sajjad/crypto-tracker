@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { TrackerModule } from './tracker/tracker.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Tracker } from './tracker/entities';
+import { PriceCheckerModule } from './price-checker/price-checker.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { Tracker } from './tracker/entities';
       dropSchema: false,
     }),
     TrackerModule,
+    PriceCheckerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -3,7 +3,8 @@ import { TrackerService } from './tracker.service';
 import { CreateTrackerDto } from './dtos/create-tracker.dto';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Tracker, TrackerType } from './entities';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { PriceCheckerService } from 'src/price-checker/price-checker.service';
 
 describe('TrackerService', () => {
   let service: TrackerService;
@@ -18,6 +19,10 @@ describe('TrackerService', () => {
     delete: jest.fn(),
   };
 
+  const mockPriceCheckerService = {
+    fetchPrice: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -25,6 +30,10 @@ describe('TrackerService', () => {
         {
           provide: trackerRepositoryToken,
           useValue: mockRepo,
+        },
+        {
+          provide: PriceCheckerService,
+          useValue: mockPriceCheckerService,
         },
       ],
     }).compile();
@@ -44,7 +53,7 @@ describe('TrackerService', () => {
     it('create method should return an object', async () => {
       // Arrange
       const createTrackerDto: CreateTrackerDto = {
-        cryptoName: 'btc',
+        cryptoName: 'bitcoin',
         price: 35536.44,
         type: TrackerType.UP,
       };
@@ -56,8 +65,13 @@ describe('TrackerService', () => {
         createdAt: new Date(),
       };
 
+      const currentPriceResult = {
+        priceUsd: '30000.0043',
+      };
+
       mockRepo.create.mockReturnValue(resolvedValue);
       mockRepo.save.mockResolvedValue(resolvedValue);
+      mockPriceCheckerService.fetchPrice.mockResolvedValue(currentPriceResult);
 
       // Act
       const result = await service.create(createTrackerDto);
@@ -66,9 +80,26 @@ describe('TrackerService', () => {
       expect(result).toBe(resolvedValue);
     });
 
-    // it('create method should check the price before creating new tracker', () => {
+    it('create method should check the price before creating new tracker', async () => {
+      // Arrange
+      const createTrackerDto: CreateTrackerDto = {
+        cryptoName: 'btc',
+        price: 35536.44,
+        type: TrackerType.UP,
+      };
 
-    // });
+      const fetchPriceResult = {
+        priceUsd: '37000.00',
+      };
+
+      mockPriceCheckerService.fetchPrice.mockResolvedValue(fetchPriceResult);
+
+      // Act
+      const createPromise = service.create(createTrackerDto);
+
+      // Assert
+      await expect(createPromise).rejects.toThrowError(BadRequestException);
+    });
 
     // it('return error when creating with wrong information', () => {});
   });
@@ -146,6 +177,48 @@ describe('TrackerService', () => {
 
       // Assert
       expect(mockRepo.delete).toHaveBeenCalledWith(id);
+    });
+  });
+
+  describe('checkCurrentPriceWithTrackerCondition', () => {
+    it('checkCurrentPriceWithTrackerCondition method should be defined', () => {
+      expect(service.checkCurrentPriceWithTrackerCondition).toBeDefined();
+    });
+
+    it('should return false for invalid condition', () => {
+      // Arrange
+      const currentPrice = 4.0;
+      const targetPrice = 3.0;
+      const trackerType = TrackerType.UP;
+
+      // Act
+      const result = service.checkCurrentPriceWithTrackerCondition(
+        trackerType,
+        currentPrice,
+        targetPrice,
+      );
+
+      // Arrest
+
+      expect(result).toBeFalsy();
+    });
+
+    it('should return true for valid condition', () => {
+      // Arrange
+      const currentPrice = 4.0;
+      const targetPrice = 3.0;
+      const trackerType = TrackerType.DOWN;
+
+      // Act
+      const result = service.checkCurrentPriceWithTrackerCondition(
+        trackerType,
+        currentPrice,
+        targetPrice,
+      );
+
+      // Arrest
+
+      expect(result).toBeTruthy();
     });
   });
 });
