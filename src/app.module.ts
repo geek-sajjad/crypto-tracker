@@ -5,9 +5,13 @@ import { TrackerModule } from './tracker/tracker.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Tracker } from './tracker/entities';
 import { PriceCheckerModule } from './price-checker/price-checker.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
+    CacheModule.register({ isGlobal: true, store: 'memory', ttl: 120000 }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: 'localhost',

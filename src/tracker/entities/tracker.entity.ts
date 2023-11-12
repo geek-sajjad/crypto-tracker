@@ -24,7 +24,7 @@ export class Tracker extends AbstractEntity {
     type: 'enum',
     enum: TrackerType,
   })
-  type: string;
+  type: TrackerType;
 
   // email
   // period

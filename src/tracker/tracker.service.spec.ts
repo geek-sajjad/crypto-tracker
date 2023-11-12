@@ -5,6 +5,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Tracker, TrackerType } from './entities';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PriceCheckerService } from 'src/price-checker/price-checker.service';
+import { CACHE_MANAGER, CacheModule } from '@nestjs/cache-manager';
+import { when } from 'jest-when';
 
 describe('TrackerService', () => {
   let service: TrackerService;
@@ -34,6 +36,13 @@ describe('TrackerService', () => {
         {
           provide: PriceCheckerService,
           useValue: mockPriceCheckerService,
+        },
+        {
+          provide: CACHE_MANAGER,
+          useValue: {
+            get: jest.fn(),
+            set: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -217,8 +226,65 @@ describe('TrackerService', () => {
       );
 
       // Arrest
-
       expect(result).toBeTruthy();
+    });
+  });
+
+  describe('checkTrackerContinuously', () => {
+    it('checkTrackerContinuously method should be defined', () => {
+      expect(service.checkTrackerContinuously).toBeDefined();
+    });
+
+    it('should delete trackers that met with the new price condition', async () => {
+      // Arrange
+      const trackers = [
+        {
+          id: 1,
+          cryptoName: 'bitcoin',
+          price: '35000.0',
+          type: TrackerType.UP,
+        },
+        {
+          id: 2,
+          cryptoName: 'bitcoin',
+          price: '30000.0',
+          type: TrackerType.UP,
+        },
+        {
+          id: 3,
+          cryptoName: 'bitcoin',
+          price: '40000.0',
+          type: TrackerType.DOWN,
+        },
+        {
+          id: 4,
+          cryptoName: 'bitcoin',
+          price: '60000.0',
+          type: TrackerType.UP,
+        },
+        {
+          id: 5,
+          cryptoName: 'bitcoin',
+          price: '4000.0',
+          type: TrackerType.DOWN,
+        },
+      ];
+      mockRepo.find.mockResolvedValue(trackers);
+      when(mockPriceCheckerService.fetchPrice)
+        .calledWith('bitcoin')
+        .mockResolvedValue({
+          id: 'bitcoin',
+          priceUsd: 37000.0,
+        });
+
+      jest.spyOn(service, 'deleteAllBasedOnIDs');
+
+      // Act
+      await service.checkTrackerContinuously();
+
+      // Arrest
+
+      expect(service.deleteAllBasedOnIDs).toHaveBeenCalledWith([1, 2, 3]);
     });
   });
 });
