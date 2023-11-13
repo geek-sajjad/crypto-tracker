@@ -28,11 +28,12 @@ export class TrackerController {
   }
 
   @Post()
-  create(@Body() { cryptoName, price, type }: CreateTrackerDto) {
+  create(@Body() { cryptoName, price, type, notifyEmail }: CreateTrackerDto) {
     return this.trackerService.create({
       cryptoName,
       price,
       type,
+      notifyEmail,
     });
   }
 

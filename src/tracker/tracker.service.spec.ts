@@ -7,6 +7,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PriceCheckerService } from 'src/price-checker/price-checker.service';
 import { CACHE_MANAGER, CacheModule } from '@nestjs/cache-manager';
 import { when } from 'jest-when';
+import { AlertService } from 'src/alert/alert.service';
 
 describe('TrackerService', () => {
   let service: TrackerService;
@@ -23,6 +24,10 @@ describe('TrackerService', () => {
 
   const mockPriceCheckerService = {
     fetchPrice: jest.fn(),
+  };
+
+  const mockAlertService = {
+    sendMailAlert: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -43,6 +48,10 @@ describe('TrackerService', () => {
             get: jest.fn(),
             set: jest.fn(),
           },
+        },
+        {
+          provide: AlertService,
+          useValue: mockAlertService,
         },
       ],
     }).compile();
@@ -65,6 +74,7 @@ describe('TrackerService', () => {
         cryptoName: 'bitcoin',
         price: 35536.44,
         type: TrackerType.UP,
+        notifyEmail: 'test@me.com',
       };
 
       const resolvedValue = {
@@ -72,6 +82,7 @@ describe('TrackerService', () => {
         id: 1,
         updatedAt: new Date(),
         createdAt: new Date(),
+        notifyEmail: 'test@me.com',
       };
 
       const currentPriceResult = {
@@ -95,6 +106,7 @@ describe('TrackerService', () => {
         cryptoName: 'btc',
         price: 35536.44,
         type: TrackerType.UP,
+        notifyEmail: 'test@me.com',
       };
 
       const fetchPriceResult = {
@@ -145,6 +157,7 @@ describe('TrackerService', () => {
         type: TrackerType.UP,
         updatedAt: new Date(),
         createdAt: new Date(),
+        notifyEmail: 'test@me.com',
       };
 
       mockRepo.findOne.mockResolvedValue(resolvedValue);
@@ -285,6 +298,62 @@ describe('TrackerService', () => {
       // Arrest
 
       expect(service.deleteAllBasedOnIDs).toHaveBeenCalledWith([1, 2, 3]);
+    });
+
+    it('should call triggerAlert method for triggered alerts', async () => {
+      // Arrange
+      const trackers = [
+        {
+          id: 1,
+          cryptoName: 'bitcoin',
+          price: '35000.0',
+          type: TrackerType.UP,
+          notifyEmail: 'test@me.com',
+        },
+        {
+          id: 2,
+          cryptoName: 'bitcoin',
+          price: '30000.0',
+          type: TrackerType.UP,
+          notifyEmail: 'test@me.com',
+        },
+        {
+          id: 3,
+          cryptoName: 'bitcoin',
+          price: '40000.0',
+          type: TrackerType.DOWN,
+          notifyEmail: 'test@me.com',
+        },
+        {
+          id: 4,
+          cryptoName: 'bitcoin',
+          price: '60000.0',
+          type: TrackerType.UP,
+          notifyEmail: 'test@me.com',
+        },
+        {
+          id: 5,
+          cryptoName: 'bitcoin',
+          price: '4000.0',
+          type: TrackerType.DOWN,
+          notifyEmail: 'test@me.com',
+        },
+      ];
+      mockRepo.find.mockResolvedValue(trackers);
+      when(mockPriceCheckerService.fetchPrice)
+        .calledWith('bitcoin')
+        .mockResolvedValue({
+          id: 'bitcoin',
+          priceUsd: 37000.0,
+        });
+
+      jest.spyOn(service, 'triggerAlert');
+
+      // Act
+      await service.checkTrackerContinuously();
+
+      // Arrest
+      expect(service.triggerAlert).toHaveBeenCalledTimes(3);
     });
   });
 });

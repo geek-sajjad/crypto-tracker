@@ -1,4 +1,5 @@
 import {
+  IsEmail,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -26,4 +27,9 @@ export class CreateTrackerDto {
   @Min(1)
   @Max(999999.99)
   price: number;
+
+  @IsString()
+  @IsEmail()
+  @IsNotEmpty()
+  notifyEmail: string;
 }

@@ -7,9 +7,18 @@ import { Tracker } from './tracker/entities';
 import { PriceCheckerModule } from './price-checker/price-checker.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CacheModule } from '@nestjs/cache-manager';
+import { AlertModule } from './alert/alert.module';
+import { BullModule } from '@nestjs/bull';
 
 @Module({
   imports: [
+    BullModule.forRoot({
+      redis: {
+        host: 'localhost',
+        port: 6379,
+      },
+    }),
+
     CacheModule.register({ isGlobal: true, store: 'memory', ttl: 120000 }),
     ScheduleModule.forRoot(),
     TypeOrmModule.forRoot({
@@ -25,6 +34,7 @@ import { CacheModule } from '@nestjs/cache-manager';
     }),
     TrackerModule,
     PriceCheckerModule,
+    AlertModule,
   ],
   controllers: [AppController],
   providers: [AppService],

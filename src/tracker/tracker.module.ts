@@ -4,9 +4,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Tracker } from './entities';
 import { TrackerController } from './tracker.controller';
 import { PriceCheckerModule } from 'src/price-checker/price-checker.module';
+import { AlertModule } from 'src/alert/alert.module';
 
 @Module({
-  imports: [PriceCheckerModule, TypeOrmModule.forFeature([Tracker])],
+  imports: [
+    AlertModule,
+    PriceCheckerModule,
+    TypeOrmModule.forFeature([Tracker]),
+  ],
   providers: [TrackerService],
   controllers: [TrackerController],
   exports: [TrackerService],

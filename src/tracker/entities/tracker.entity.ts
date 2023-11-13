@@ -26,6 +26,8 @@ export class Tracker extends AbstractEntity {
   })
   type: TrackerType;
 
-  // email
+  @Column()
+  notifyEmail: string;
+
   // period
 }

@@ -17,15 +17,25 @@ import { Cache } from 'cache-manager';
 import { ICryptoPriceData, ITriggeredTracker } from './interfaces';
 import { CHECK_TRACKER_IS_RUNNING } from './constants';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { AlertService } from 'src/alert/alert.service';
 
 @Injectable()
 export class TrackerService {
   constructor(
+    @InjectRepository(Tracker) private trackerRepository: Repository<Tracker>,
+    @Inject(CACHE_MANAGER)
+    private cacheManager: Cache,
     private priceCheckerService: PriceCheckerService,
-    @InjectRepository(Tracker)
-    private trackerRepository: Repository<Tracker>,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private alertService: AlertService,
   ) {}
+
+  async triggerAlert(email: string, data: string) {
+    await this.alertService.sendMailAlert({
+      body: data,
+      email: email,
+      subject: 'subject',
+    });
+  }
 
   async create(createDto: CreateTrackerDto) {
     try {
@@ -59,6 +69,7 @@ export class TrackerService {
         cryptoName: createDto.cryptoName,
         price: createDto.price,
         type: createDto.type,
+        notifyEmail: createDto.notifyEmail,
       });
 
       return this.trackerRepository.save(tracker);
@@ -139,6 +150,8 @@ export class TrackerService {
       this._processTrackersBasedOnNewPrices(trackers, newCryptoPricesData);
 
     // If they meet the new price condition, place them in the notification queue, and remove them from the array, database, and any other remaining locations
+    await this._triggerAlertTrackers(triggeredTrackers);
+
     // If they do not meet the new price condition, simply remove them from the array
     const deleteTrackerIDs =
       this._extractIDsFromTriggeredTracker(triggeredTrackers);
@@ -168,6 +181,7 @@ export class TrackerService {
         triggeredTrackers.push({
           trackerId: tracker.id,
           cryptoName: tracker.cryptoName,
+          notifyEmail: tracker.notifyEmail,
           newPrice: cryptoNewPrice,
         });
     }
@@ -215,5 +229,24 @@ export class TrackerService {
     triggeredTrackers: Array<ITriggeredTracker>,
   ): Array<number> {
     return triggeredTrackers.map((item) => item.trackerId);
+  }
+
+  private async _triggerAlertTrackers(
+    triggeredTrackers: Array<ITriggeredTracker>,
+  ) {
+    try {
+      const triggerAlertsRequests = triggeredTrackers.map(
+        async (triggeredTracker) => {
+          await this.triggerAlert(
+            triggeredTracker.notifyEmail,
+            `crypto name: ${triggeredTracker.cryptoName} - new price: ${triggeredTracker.newPrice}`,
+          );
+        },
+      );
+
+      await Promise.all(triggerAlertsRequests);
+    } catch (error) {
+      throw new Error(`Error triggering alerts: ${error.message}`);
+    }
   }
 }
