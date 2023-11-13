@@ -8,6 +8,7 @@ import { AlertModule } from './alert/alert.module';
 import { BullModule } from '@nestjs/bull';
 import { CacheProviderModule } from './providers/cache/cache-provider.module';
 import { DatabaseProviderModule } from './providers/database/database-provider.module';
+import { AppConfigModule } from './config/app/app-config.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { DatabaseProviderModule } from './providers/database/database-provider.m
     TrackerModule,
     PriceCheckerModule,
     AlertModule,
+    AppConfigModule,
   ],
   controllers: [AppController],
   providers: [AppService],
