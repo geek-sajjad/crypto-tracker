@@ -9,6 +9,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { CacheModule } from '@nestjs/cache-manager';
 import { AlertModule } from './alert/alert.module';
 import { BullModule } from '@nestjs/bull';
+import { CacheProviderModule } from './providers/cache/cache-provider.module';
 
 @Module({
   imports: [
@@ -18,8 +19,7 @@ import { BullModule } from '@nestjs/bull';
         port: 6379,
       },
     }),
-
-    CacheModule.register({ isGlobal: true, store: 'memory', ttl: 120000 }),
+    CacheProviderModule,
     ScheduleModule.forRoot(),
     TypeOrmModule.forRoot({
       type: 'postgres',
