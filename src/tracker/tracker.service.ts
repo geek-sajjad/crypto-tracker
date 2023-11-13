@@ -133,14 +133,10 @@ export class TrackerService {
   @Cron(CronExpression.EVERY_30_MINUTES)
   async checkTrackerContinuously() {
     //TODO: Block the incoming requests to create new trackers
-    await this.cacheManager.set(CHECK_TRACKER_IS_RUNNING, true);
+    await this.cacheManager.set(CHECK_TRACKER_IS_RUNNING, true, 10000);
 
     // Load all the trackers from the database into an array
     const trackers = await this.trackerRepository.find();
-
-    if (trackers.length === 0) {
-      return await this.cacheManager.set(CHECK_TRACKER_IS_RUNNING, false);
-    }
 
     // Extract all crypto names into an array
     const distinctCryptoNames = this._extractDistinctCryptoNames(trackers);
