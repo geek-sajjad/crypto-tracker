@@ -57,17 +57,17 @@ export class TrackerService {
       const isTargetPriceValid = this.checkCurrentPriceWithTrackerCondition(
         createDto.type,
         currentPrice,
-        createDto.price,
+        createDto.priceThreshold,
       );
 
       if (!isTargetPriceValid)
         throw new BadRequestException(
-          'The target price should meet the currentPrice condition',
+          'The target priceThreshold should meet the currentPrice condition',
         );
 
       const tracker = this.trackerRepository.create({
         cryptoName: createDto.cryptoName,
-        price: createDto.price,
+        priceThreshold: createDto.priceThreshold,
         type: createDto.type,
         notifyEmail: createDto.notifyEmail,
       });
@@ -89,7 +89,13 @@ export class TrackerService {
   findAll(query: PaginateQuery) {
     return paginate(query, this.trackerRepository, {
       defaultSortBy: [['id', 'DESC']],
-      sortableColumns: ['id', 'createdAt', 'price', 'cryptoName', 'type'],
+      sortableColumns: [
+        'id',
+        'createdAt',
+        'priceThreshold',
+        'cryptoName',
+        'type',
+      ],
     });
   }
 
@@ -118,7 +124,8 @@ export class TrackerService {
     currentUsdPrice: number,
     targetPrice: number,
   ): boolean {
-    if (trackerType === TrackerType.UP) return targetPrice > currentUsdPrice;
+    if (trackerType === TrackerType.INCREASE)
+      return targetPrice > currentUsdPrice;
 
     return targetPrice < currentUsdPrice;
   }
@@ -196,7 +203,7 @@ export class TrackerService {
     return !this.checkCurrentPriceWithTrackerCondition(
       tracker.type,
       newCryptoPrice,
-      tracker.price,
+      tracker.priceThreshold,
     );
   }
 

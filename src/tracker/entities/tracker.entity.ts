@@ -2,8 +2,8 @@ import { AbstractEntity } from 'src/common/abstract.entity';
 import { Column, Entity } from 'typeorm';
 
 export enum TrackerType {
-  UP = 'up',
-  DOWN = 'down',
+  INCREASE = 'increase',
+  DECREASE = 'decrease',
 }
 
 @Entity({ name: 'tracker' })
@@ -18,7 +18,7 @@ export class Tracker extends AbstractEntity {
     precision: 8,
     scale: 2,
   })
-  price: number;
+  priceThreshold: number;
 
   @Column({
     type: 'enum',

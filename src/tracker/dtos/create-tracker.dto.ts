@@ -19,14 +19,14 @@ export class CreateTrackerDto {
 
   //TODO:Refactor use enums
   @IsEnum(TrackerType, {
-    message: 'Invalid type. Must be one of "up" or "down".',
+    message: 'Invalid type. Must be one of "increase" or "decrease".',
   })
   type: TrackerType;
 
   @IsNumber()
   @Min(1)
   @Max(999999.99)
-  price: number;
+  priceThreshold: number;
 
   @IsString()
   @IsEmail()

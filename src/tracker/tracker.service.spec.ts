@@ -72,8 +72,8 @@ describe('TrackerService', () => {
       // Arrange
       const createTrackerDto: CreateTrackerDto = {
         cryptoName: 'bitcoin',
-        price: 35536.44,
-        type: TrackerType.UP,
+        priceThreshold: 35536.44,
+        type: TrackerType.INCREASE,
         notifyEmail: 'test@me.com',
       };
 
@@ -104,8 +104,8 @@ describe('TrackerService', () => {
       // Arrange
       const createTrackerDto: CreateTrackerDto = {
         cryptoName: 'btc',
-        price: 35536.44,
-        type: TrackerType.UP,
+        priceThreshold: 35536.44,
+        type: TrackerType.INCREASE,
         notifyEmail: 'test@me.com',
       };
 
@@ -153,8 +153,8 @@ describe('TrackerService', () => {
       const resolvedValue = {
         id,
         cryptoName: 'btc',
-        price: 35536.44,
-        type: TrackerType.UP,
+        priceThreshold: 35536.44,
+        type: TrackerType.INCREASE,
         updatedAt: new Date(),
         createdAt: new Date(),
         notifyEmail: 'test@me.com',
@@ -211,7 +211,7 @@ describe('TrackerService', () => {
       // Arrange
       const currentPrice = 4.0;
       const targetPrice = 3.0;
-      const trackerType = TrackerType.UP;
+      const trackerType = TrackerType.INCREASE;
 
       // Act
       const result = service.checkCurrentPriceWithTrackerCondition(
@@ -229,7 +229,7 @@ describe('TrackerService', () => {
       // Arrange
       const currentPrice = 4.0;
       const targetPrice = 3.0;
-      const trackerType = TrackerType.DOWN;
+      const trackerType = TrackerType.DECREASE;
 
       // Act
       const result = service.checkCurrentPriceWithTrackerCondition(
@@ -254,32 +254,32 @@ describe('TrackerService', () => {
         {
           id: 1,
           cryptoName: 'bitcoin',
-          price: '35000.0',
-          type: TrackerType.UP,
+          priceThreshold: '35000.0',
+          type: TrackerType.INCREASE,
         },
         {
           id: 2,
           cryptoName: 'bitcoin',
-          price: '30000.0',
-          type: TrackerType.UP,
+          priceThreshold: '30000.0',
+          type: TrackerType.INCREASE,
         },
         {
           id: 3,
           cryptoName: 'bitcoin',
-          price: '40000.0',
-          type: TrackerType.DOWN,
+          priceThreshold: '40000.0',
+          type: TrackerType.DECREASE,
         },
         {
           id: 4,
           cryptoName: 'bitcoin',
-          price: '60000.0',
-          type: TrackerType.UP,
+          priceThreshold: '60000.0',
+          type: TrackerType.INCREASE,
         },
         {
           id: 5,
           cryptoName: 'bitcoin',
-          price: '4000.0',
-          type: TrackerType.DOWN,
+          priceThreshold: '4000.0',
+          type: TrackerType.DECREASE,
         },
       ];
       mockRepo.find.mockResolvedValue(trackers);
@@ -306,36 +306,36 @@ describe('TrackerService', () => {
         {
           id: 1,
           cryptoName: 'bitcoin',
-          price: '35000.0',
-          type: TrackerType.UP,
+          priceThreshold: '35000.0',
+          type: TrackerType.INCREASE,
           notifyEmail: 'test@me.com',
         },
         {
           id: 2,
           cryptoName: 'bitcoin',
-          price: '30000.0',
-          type: TrackerType.UP,
+          priceThreshold: '30000.0',
+          type: TrackerType.INCREASE,
           notifyEmail: 'test@me.com',
         },
         {
           id: 3,
           cryptoName: 'bitcoin',
-          price: '40000.0',
-          type: TrackerType.DOWN,
+          priceThreshold: '40000.0',
+          type: TrackerType.DECREASE,
           notifyEmail: 'test@me.com',
         },
         {
           id: 4,
           cryptoName: 'bitcoin',
-          price: '60000.0',
-          type: TrackerType.UP,
+          priceThreshold: '60000.0',
+          type: TrackerType.INCREASE,
           notifyEmail: 'test@me.com',
         },
         {
           id: 5,
           cryptoName: 'bitcoin',
-          price: '4000.0',
-          type: TrackerType.DOWN,
+          priceThreshold: '4000.0',
+          type: TrackerType.DECREASE,
           notifyEmail: 'test@me.com',
         },
       ];
