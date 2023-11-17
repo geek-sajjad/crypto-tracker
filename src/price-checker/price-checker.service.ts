@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import axios, { Axios } from 'axios';
+import { IPriceCheckerService } from './interfaces';
 
 @Injectable()
-export class PriceCheckerService {
+export class PriceCheckerService implements IPriceCheckerService {
   async fetchPrice(cryptoName: string) {
     try {
       const url = `https://api.coincap.io/v2/assets/${cryptoName}`;

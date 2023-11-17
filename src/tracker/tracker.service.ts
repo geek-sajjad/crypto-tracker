@@ -18,6 +18,8 @@ import { ICryptoPriceData, ITriggeredTracker } from './interfaces';
 import { CHECK_TRACKER_IS_RUNNING } from './constants';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { AlertService } from 'src/alert/alert.service';
+import { IPriceCheckerService } from 'src/price-checker/interfaces';
+import { PRICE_CHECKER_SERVICE_TOKEN } from 'src/common/constants';
 
 @Injectable()
 export class TrackerService {
@@ -25,7 +27,8 @@ export class TrackerService {
     @InjectRepository(Tracker) private trackerRepository: Repository<Tracker>,
     @Inject(CACHE_MANAGER)
     private cacheManager: Cache,
-    private priceCheckerService: PriceCheckerService,
+    @Inject(PRICE_CHECKER_SERVICE_TOKEN)
+    private priceCheckerService: IPriceCheckerService,
     private alertService: AlertService,
   ) {}
 
@@ -137,6 +140,7 @@ export class TrackerService {
 
     // Load all the trackers from the database into an array
     const trackers = await this.trackerRepository.find();
+    console.log(trackers.length);
 
     // Extract all crypto names into an array
     const distinctCryptoNames = this._extractDistinctCryptoNames(trackers);
@@ -145,12 +149,14 @@ export class TrackerService {
     const newCryptoPricesData = await this._fetchPricesForDistinctCryptoNames(
       distinctCryptoNames,
     );
+    console.log(newCryptoPricesData.length);
 
     // TODO:  Update all crypto prices with new ones in the cache system.
 
     // Begin processing the list of trackers based on the new prices stored in the array
     const triggeredTrackers: ITriggeredTracker[] =
       this._processTrackersBasedOnNewPrices(trackers, newCryptoPricesData);
+    console.log(triggeredTrackers);
 
     // If they meet the new price condition, place them in the notification queue, and remove them from the array, database, and any other remaining locations
     await this._triggerAlertTrackers(triggeredTrackers);

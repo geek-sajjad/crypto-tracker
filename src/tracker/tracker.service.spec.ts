@@ -8,6 +8,8 @@ import { PriceCheckerService } from 'src/price-checker/price-checker.service';
 import { CACHE_MANAGER, CacheModule } from '@nestjs/cache-manager';
 import { when } from 'jest-when';
 import { AlertService } from 'src/alert/alert.service';
+import { PRICE_CHECKER_SERVICE_TOKEN } from 'src/common/constants';
+import { PriceCheckerMockService } from 'src/price-checker/price-checker-mock.service';
 
 describe('TrackerService', () => {
   let service: TrackerService;
@@ -39,7 +41,7 @@ describe('TrackerService', () => {
           useValue: mockRepo,
         },
         {
-          provide: PriceCheckerService,
+          provide: PRICE_CHECKER_SERVICE_TOKEN,
           useValue: mockPriceCheckerService,
         },
         {

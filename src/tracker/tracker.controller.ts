@@ -17,6 +17,16 @@ import { Paginate, PaginateQuery } from 'nestjs-paginate';
 export class TrackerController {
   constructor(public readonly trackerService: TrackerService) {}
 
+  @Get('test')
+  async test() {
+    await this.trackerService.checkTrackerContinuously();
+    // return new Promise((resolve, reject) => {
+    //   setTimeout(() => {
+    //     resolve('test');
+    //   }, 3000);
+    // });
+  }
+
   @Get()
   getAll(@Paginate() query: PaginateQuery) {
     return this.trackerService.findAll(query);
