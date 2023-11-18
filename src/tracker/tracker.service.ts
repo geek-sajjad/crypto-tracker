@@ -45,15 +45,12 @@ export class TrackerService {
       const isCreateTrackerBlocked = await this.cacheManager.get<boolean>(
         CHECK_TRACKER_IS_RUNNING,
       );
-
       if (isCreateTrackerBlocked)
         throw new ServiceUnavailableException(
           'The service is currently unavailable, try again after a few minutes later.',
         );
 
-      let { priceUsd } = await this.priceCheckerService.fetchPrice(
-        createDto.cryptoName,
-      );
+      const priceUsd = await this._cryptoPrice(createDto.cryptoName);
 
       const currentPrice = convertStringToFloatWithPrecision(priceUsd);
 
@@ -257,5 +254,30 @@ export class TrackerService {
     } catch (error) {
       throw new Error(`Error triggering alerts: ${error.message}`);
     }
+  }
+
+  private async _cryptoPrice(cryptoName: string): Promise<string> {
+    let cachedCryptoPrices = await this.cacheManager.get('crypto_prices');
+
+    if (cachedCryptoPrices && cachedCryptoPrices[cryptoName]) {
+      return cachedCryptoPrices[cryptoName];
+    }
+
+    if (!cachedCryptoPrices) cachedCryptoPrices = new Object();
+
+    let result = await this.priceCheckerService.fetchPrice(cryptoName);
+
+    const cryptoId = result['id'];
+    const priceUsd = result['priceUsd'] as string;
+
+    cachedCryptoPrices[cryptoId] = priceUsd;
+
+    await this.cacheManager.set(
+      'crypto_prices',
+      cachedCryptoPrices,
+      1000 * 60 * 30,
+    );
+
+    return priceUsd;
   }
 }
