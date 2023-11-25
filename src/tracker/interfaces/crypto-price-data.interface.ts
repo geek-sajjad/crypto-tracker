@@ -1,4 +1,4 @@
-export interface ICryptoPriceData {
-  cryptoName: string;
-  cryptoNewPrice: number;
-}
+// export interface ICryptoPriceData {
+//   cryptoName: string;
+//   cryptoNewPrice: number;
+// }

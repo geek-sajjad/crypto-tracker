@@ -3,13 +3,15 @@ import { TrackerService } from './tracker.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Tracker } from './entities';
 import { TrackerController } from './tracker.controller';
-import { PriceCheckerModule } from 'src/price-checker/price-checker.module';
 import { AlertModule } from 'src/alert/alert.module';
+import { CacheManagerModule } from 'src/cache-manager/cache-manager.module';
+import { CryptoPriceModule } from 'src/crypto-price/crypto-price.module';
 
 @Module({
   imports: [
+    CacheManagerModule,
     AlertModule,
-    PriceCheckerModule,
+    CryptoPriceModule,
     TypeOrmModule.forFeature([Tracker]),
   ],
   providers: [TrackerService],

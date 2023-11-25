@@ -10,80 +10,60 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Tracker, TrackerType } from './entities';
 import { In, Repository } from 'typeorm';
 import { PaginateQuery, paginate } from 'nestjs-paginate';
-import { PriceCheckerService } from 'src/price-checker/price-checker.service';
 import { convertStringToFloatWithPrecision } from 'src/utils';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import { ICryptoPriceData, ITriggeredTracker } from './interfaces';
-import { CHECK_TRACKER_IS_RUNNING } from './constants';
+
+import { ITrackersToGetNotified } from './interfaces';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { AlertService } from 'src/alert/alert.service';
-import { IPriceCheckerService } from 'src/price-checker/interfaces';
-import { PRICE_CHECKER_SERVICE_TOKEN } from 'src/common/constants';
+import { ICryptoPrice, ICryptoPriceService } from 'src/crypto-price/interfaces';
+import {
+  CACHE_MANAGER_SERVICE_TOKEN,
+  CRYPTO_PRICE_SERVICE_TOKEN,
+} from 'src/common/constants';
+import { ICacheManagerService } from 'src/cache-manager/chache-manager-service.interface';
 
 @Injectable()
 export class TrackerService {
   constructor(
     @InjectRepository(Tracker) private trackerRepository: Repository<Tracker>,
-    @Inject(CACHE_MANAGER)
-    private cacheManager: Cache,
-    @Inject(PRICE_CHECKER_SERVICE_TOKEN)
-    private priceCheckerService: IPriceCheckerService,
+    @Inject(CRYPTO_PRICE_SERVICE_TOKEN)
+    private cryptoPriceService: ICryptoPriceService,
     private alertService: AlertService,
+    @Inject(CACHE_MANAGER_SERVICE_TOKEN)
+    private cacheManagerService: ICacheManagerService,
   ) {}
 
-  async triggerAlert(email: string, data: string) {
-    await this.alertService.sendMailAlert({
-      body: data,
-      email: email,
-      subject: 'subject',
-    });
-  }
-
   async create(createDto: CreateTrackerDto) {
-    try {
-      const isCreateTrackerBlocked = await this.cacheManager.get<boolean>(
-        CHECK_TRACKER_IS_RUNNING,
-      );
-      if (isCreateTrackerBlocked)
-        throw new ServiceUnavailableException(
-          'The service is currently unavailable, try again after a few minutes later.',
-        );
-
-      const priceUsd = await this._cryptoPrice(createDto.cryptoName);
-
-      const currentPrice = convertStringToFloatWithPrecision(priceUsd);
-
-      const isTargetPriceValid = this.checkCurrentPriceWithTrackerCondition(
-        createDto.type,
-        currentPrice,
-        createDto.priceThreshold,
+    const isCreateTrackerBlocked =
+      await this.cacheManagerService.checkIfCreateTrackerIsBlocked();
+    if (isCreateTrackerBlocked)
+      throw new ServiceUnavailableException(
+        'The service is currently unavailable, try again after a few minutes later.',
       );
 
-      if (!isTargetPriceValid)
-        throw new BadRequestException(
-          'The target priceThreshold should meet the currentPrice condition',
-        );
+    const { price } = await this.cryptoPriceService.getPrice(
+      createDto.cryptoName,
+    );
 
-      const tracker = this.trackerRepository.create({
-        cryptoName: createDto.cryptoName,
-        priceThreshold: createDto.priceThreshold,
-        type: createDto.type,
-        notifyEmail: createDto.notifyEmail,
-      });
+    const isTargetPriceValid = this.checkCurrentPriceWithTrackerCondition(
+      createDto.type,
+      price,
+      createDto.priceThreshold,
+    );
 
-      return this.trackerRepository.save(tracker);
-    } catch (error) {
-      if (
-        error instanceof NotFoundException &&
-        error.message.includes('The cryptoName not found!')
-      )
-        throw new BadRequestException(
-          'The provided cryptoName is not available.',
-        );
+    if (!isTargetPriceValid)
+      throw new BadRequestException(
+        'The target priceThreshold should meet the currentPrice condition',
+      );
 
-      throw error;
-    }
+    const tracker = this.trackerRepository.create({
+      cryptoName: createDto.cryptoName,
+      priceThreshold: createDto.priceThreshold,
+      type: createDto.type,
+      notifyEmail: createDto.notifyEmail,
+    });
+
+    return this.trackerRepository.save(tracker);
   }
 
   findAll(query: PaginateQuery) {
@@ -110,15 +90,6 @@ export class TrackerService {
     return this.trackerRepository.delete(id);
   }
 
-  deleteAllBasedOnIDs(IDs: Array<number>) {
-    // check if IDs are empty
-    if (!IDs.length) return;
-
-    return this.trackerRepository.delete({
-      id: In(IDs),
-    });
-  }
-
   checkCurrentPriceWithTrackerCondition(
     trackerType: TrackerType,
     currentUsdPrice: number,
@@ -132,67 +103,71 @@ export class TrackerService {
 
   @Cron(CronExpression.EVERY_30_MINUTES)
   async checkTrackerContinuously() {
-    //TODO: Block the incoming requests to create new trackers
-    await this.cacheManager.set(CHECK_TRACKER_IS_RUNNING, true, 10000);
+    // TODO handle error
+    await this.cacheManagerService.blockCreateTrackerRequests();
 
-    // Load all the trackers from the database into an array
+    const triggeredTrackers = await this._getTrackersToGetNotified();
+
+    await this.alertService.alertTrackers(triggeredTrackers);
+
+    await this._removeNotifiedTrackers(triggeredTrackers);
+
+    await this.cacheManagerService.unBlockCreateTrackerRequests();
+  }
+
+  private async _removeNotifiedTrackers(
+    trackers: Array<ITrackersToGetNotified>,
+  ) {
+    const deleteTrackerIDs = this._extractIDsFromTriggeredTracker(trackers);
+    if (!deleteTrackerIDs.length) return;
+
+    await this.trackerRepository.delete({
+      id: In(deleteTrackerIDs),
+    });
+  }
+
+  private async _getTrackersToGetNotified(): Promise<
+    Array<ITrackersToGetNotified>
+  > {
     const trackers = await this.trackerRepository.find();
-    console.log(trackers.length);
 
-    // Extract all crypto names into an array
     const distinctCryptoNames = this._extractDistinctCryptoNames(trackers);
 
-    // Retrieve all the crypto prices and store them in an array
-    const newCryptoPricesData = await this._fetchPricesForDistinctCryptoNames(
-      distinctCryptoNames,
-    );
-    console.log(newCryptoPricesData.length);
+    const cryptoPrices =
+      await this.cryptoPriceService.fetchPricesForDistinctCryptoNames(
+        distinctCryptoNames,
+      );
 
-    // TODO:  Update all crypto prices with new ones in the cache system.
+    const triggeredTrackers: ITrackersToGetNotified[] =
+      this._processTrackersBasedOnNewPrices(trackers, cryptoPrices);
 
-    // Begin processing the list of trackers based on the new prices stored in the array
-    const triggeredTrackers: ITriggeredTracker[] =
-      this._processTrackersBasedOnNewPrices(trackers, newCryptoPricesData);
-    console.log(triggeredTrackers);
-
-    // If they meet the new price condition, place them in the notification queue, and remove them from the array, database, and any other remaining locations
-    await this._triggerAlertTrackers(triggeredTrackers);
-
-    // If they do not meet the new price condition, simply remove them from the array
-    const deleteTrackerIDs =
-      this._extractIDsFromTriggeredTracker(triggeredTrackers);
-    await this.deleteAllBasedOnIDs(deleteTrackerIDs);
-
-    // TODO: Open the gate for incoming price requests.
-    await this.cacheManager.set(CHECK_TRACKER_IS_RUNNING, false);
+    return triggeredTrackers;
   }
 
   private _processTrackersBasedOnNewPrices(
     trackers: Array<Tracker>,
-    newCryptoPricesData: Array<ICryptoPriceData>,
-  ): Array<ITriggeredTracker> {
-    const triggeredTrackers: ITriggeredTracker[] = [];
+    cryptoPrices: Array<ICryptoPrice>,
+  ): Array<ITrackersToGetNotified> {
+    const trackersToGetNotified: ITrackersToGetNotified[] = [];
 
     for (const tracker of trackers) {
-      const { cryptoNewPrice } = newCryptoPricesData.find(
-        (newCryptoData) => newCryptoData.cryptoName === tracker.cryptoName,
+      const { price } = cryptoPrices.find(
+        (cryptoPrice) => cryptoPrice.name === tracker.cryptoName,
       );
 
-      const isTrackerMetCondition = this._isTrackerMetCondition(
-        tracker,
-        cryptoNewPrice,
-      );
+      const isTrackerMetCondition = this._isTrackerMetCondition(tracker, price);
 
       if (isTrackerMetCondition)
-        triggeredTrackers.push({
+        trackersToGetNotified.push({
           trackerId: tracker.id,
           cryptoName: tracker.cryptoName,
           notifyEmail: tracker.notifyEmail,
-          newPrice: cryptoNewPrice,
+          priceThreshold: tracker.priceThreshold,
+          currentPrice: price,
         });
     }
 
-    return triggeredTrackers;
+    return trackersToGetNotified;
   }
 
   private _isTrackerMetCondition(
@@ -210,74 +185,9 @@ export class TrackerService {
     return Array.from(new Set(trackers.map((tracker) => tracker.cryptoName)));
   }
 
-  private async _fetchPricesForDistinctCryptoNames(
-    distinctCryptoNames: Array<string>,
-  ): Promise<Array<ICryptoPriceData>> {
-    try {
-      const priceRequests = distinctCryptoNames.map(async (cryptoName) => {
-        const result = await this.priceCheckerService.fetchPrice(cryptoName);
-
-        return {
-          cryptoName: result['id'] as string,
-          cryptoNewPrice: convertStringToFloatWithPrecision(result['priceUsd']),
-        };
-      });
-
-      const priceResults = await Promise.all(priceRequests);
-
-      return priceResults;
-    } catch (error) {
-      throw new Error(`Error fetching crypto prices: ${error.message}`);
-    }
-  }
-
   private _extractIDsFromTriggeredTracker(
-    triggeredTrackers: Array<ITriggeredTracker>,
+    triggeredTrackers: Array<ITrackersToGetNotified>,
   ): Array<number> {
     return triggeredTrackers.map((item) => item.trackerId);
-  }
-
-  private async _triggerAlertTrackers(
-    triggeredTrackers: Array<ITriggeredTracker>,
-  ) {
-    try {
-      const triggerAlertsRequests = triggeredTrackers.map(
-        async (triggeredTracker) => {
-          await this.triggerAlert(
-            triggeredTracker.notifyEmail,
-            `crypto name: ${triggeredTracker.cryptoName} - new price: ${triggeredTracker.newPrice}`,
-          );
-        },
-      );
-
-      await Promise.all(triggerAlertsRequests);
-    } catch (error) {
-      throw new Error(`Error triggering alerts: ${error.message}`);
-    }
-  }
-
-  private async _cryptoPrice(cryptoName: string): Promise<string> {
-    let cachedCryptoPrices = await this.cacheManager.get('crypto_prices');
-
-    if (cachedCryptoPrices && cachedCryptoPrices[cryptoName]) {
-      return cachedCryptoPrices[cryptoName];
-    }
-
-    if (!cachedCryptoPrices) cachedCryptoPrices = new Object();
-
-    let result = await this.priceCheckerService.fetchPrice(cryptoName);
-
-    const cryptoId = result['id'];
-    const priceUsd = result['priceUsd'] as string;
-
-    cachedCryptoPrices[cryptoId] = priceUsd;
-
-    await this.cacheManager.set(
-      'crypto_prices',
-      cachedCryptoPrices,
-      1000 * 60 * 30,
-    );
-
-    return priceUsd;
   }
 }

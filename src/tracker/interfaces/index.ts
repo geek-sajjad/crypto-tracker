@@ -1,2 +1,1 @@
-export * from './crypto-price-data.interface';
-export * from './triggered-tracker.interface';
+export * from './trackers-to-get-notified.interface';
