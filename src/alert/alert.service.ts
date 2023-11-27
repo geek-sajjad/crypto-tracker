@@ -7,6 +7,20 @@ import { ITrackersToGetNotified } from 'src/tracker/interfaces';
 export class AlertService {
   constructor(@InjectQueue('alerts') private readonly alertsQueue: Queue) {}
 
+  async sendServerErrorsMailAlert(errorDetail: string) {
+    const data: IMailAlert = {
+      body: errorDetail,
+      email: 'admin@mail.com',
+      subject: 'Server internal error',
+    };
+
+    const job = await this.alertsQueue.add('mail', data, {
+      priority: 1,
+    });
+
+    return { jobId: job.id };
+  }
+
   async sendMailAlert(data: IMailAlert) {
     const job = await this.alertsQueue.add('mail', data);
     return { jobId: job.id };

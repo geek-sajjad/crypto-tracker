@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -10,7 +11,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Tracker, TrackerType } from './entities';
 import { In, Repository } from 'typeorm';
 import { PaginateQuery, paginate } from 'nestjs-paginate';
-import { convertStringToFloatWithPrecision } from 'src/utils';
 
 import { ITrackersToGetNotified } from './interfaces';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -24,6 +24,8 @@ import { ICacheManagerService } from 'src/cache-manager/chache-manager-service.i
 
 @Injectable()
 export class TrackerService {
+  private readonly logger = new Logger(TrackerService.name);
+
   constructor(
     @InjectRepository(Tracker) private trackerRepository: Repository<Tracker>,
     @Inject(CRYPTO_PRICE_SERVICE_TOKEN)
@@ -103,16 +105,16 @@ export class TrackerService {
 
   @Cron(CronExpression.EVERY_30_MINUTES)
   async checkTrackerContinuously() {
-    // TODO handle error
-    await this.cacheManagerService.blockCreateTrackerRequests();
-
-    const triggeredTrackers = await this._getTrackersToGetNotified();
-
-    await this.alertService.alertTrackers(triggeredTrackers);
-
-    await this._removeNotifiedTrackers(triggeredTrackers);
-
-    await this.cacheManagerService.unBlockCreateTrackerRequests();
+    try {
+      await this.cacheManagerService.blockCreateTrackerRequests();
+      const triggeredTrackers = await this._getTrackersToGetNotified();
+      await this.alertService.alertTrackers(triggeredTrackers);
+      await this._removeNotifiedTrackers(triggeredTrackers);
+      await this.cacheManagerService.unBlockCreateTrackerRequests();
+    } catch (error) {
+      this.logger.error(error);
+      await this.alertService.sendServerErrorsMailAlert(error.message);
+    }
   }
 
   private async _removeNotifiedTrackers(
