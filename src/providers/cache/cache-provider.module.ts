@@ -15,6 +15,7 @@ import { RedisConfigModule } from 'src/config/redis/redis-config.module';
           host: redisConfigService.host,
           port: redisConfigService.port,
         },
+        username: redisConfigService.username,
         password: redisConfigService.password,
       }),
       inject: [RedisConfigService],

@@ -22,12 +22,11 @@ export class Tracker extends AbstractEntity {
 
   @Column({
     type: 'enum',
-    enum: TrackerType,
+    enum: [TrackerType.INCREASE, TrackerType.DECREASE],
+    enumName: 'trackerTypeEnum',
   })
   type: TrackerType;
 
   @Column()
   notifyEmail: string;
-
-  // period
 }
