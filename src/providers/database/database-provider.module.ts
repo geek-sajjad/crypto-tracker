@@ -16,7 +16,7 @@ import { DatabaseConfigService } from 'src/config/database/database-config.servi
         password: databaseConfigService.password,
         database: databaseConfigService.name,
         autoLoadEntities: true,
-        synchronize: true,
+        synchronize: false,
         dropSchema: false,
       }),
     }),
